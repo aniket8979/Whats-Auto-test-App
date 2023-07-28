@@ -52,32 +52,16 @@ forgetPassDict = {}
 
 user_dir = ('D:\\Career\\Jobs\\Scriza Pvt. Ltd\\Internship\\Projects\\W_auto\\saved users')
 
-# @jwt_required()
-# @app.route('/')
-# def index():
-#     if 'user' in session:
-#         return redirect(url_for('dash'))
-#     else:
-#         return render_template('login.html', name = None)
+
+@jwt.invalid_token_loader
+def invalid_token_response(callback):
+    return jsonify(error='get lost you idiot'), 401
 
 
-# @app.route('/dash', methods = ['GET', 'POST'])
-# def dash():
-#     if 'user' in session:
-#         my_data = str(session['user'])
-#         id, token = my_data.split('+')
-#         a = tuple(render(userid=id))
-#         return render_template('dash.html', accounts = a)
-#     else:
-#         return redirect(url_for('index'))
+@jwt.expired_token_loader
+def my_expired_token_callback(callback):
+    return jsonify(error='what a wonderful idiot you are'), 401
 
-
-# @app.route('/wa')
-# def wa():
-#     if 'user' in session and 'tempN' in session:
-#         return render_template('wa.html')
-#     else:
-#         return redirect(url_for('dash'))
 
 
 @app.route('/logout')
@@ -522,9 +506,9 @@ def forget_pass():
 
 
 
-@app.route('/resetpass', methods = ['GET', 'POST'])
-@jwt_required
-def reset_pass():
+@app.route('/resetaccount', methods = ['GET', 'POST'])
+@jwt_required()
+def reset_Account():
     if request.method == 'POST':
         pass_1 = str(request.values['pass1'])
         pass_2 = str(request.values['pass2'])
@@ -569,17 +553,9 @@ def user_status(phone, status):
         return a
 
 
-# @app.route('/cmsg')
-# def c_msg():
-#     if 'user' in session and 'tempN' in session:
-#         return render_template('msg.html')
-#     else:
-#         return redirect(url_for('dash'))
-
-
 @app.route('/msg' , methods = ['GET', 'POST'])
-@jwt_required
-def custom_msg():
+@jwt_required()
+def send_msg():
     user = get_jwt()
     if 'number' in user:
         global mySessions
@@ -608,7 +584,7 @@ def custom_msg():
 
 
 @app.route('/imgsend', methods =['GET','POST'])
-@jwt_required
+@jwt_required()
 def send_image():
     user = get_jwt()
     if 'number' in user:
@@ -673,9 +649,9 @@ def send_image():
 
 
 ## Upload file function
-@app.route('/upload', methods = ['GET','POST'])
-@jwt_required
-def file_page():
+@app.route('/usexl', methods = ['GET','POST'])
+@jwt_required()
+def use_file():
     user = get_jwt()
     if 'number' in user:
         user_token = user['token']
@@ -735,7 +711,7 @@ def file_page():
                 return jsonify(a), 200
             
             else:
-                delete_file(filepath= file_page)
+                # delete_file(filepath= file_path)
                 a = {'Status':'Incorrect Form method'}
                 return jsonify(a), 405
             
@@ -749,7 +725,7 @@ def file_page():
 
 
 @app.route('/unread')
-@jwt_required
+@jwt_required()
 def unread():
     user = get_jwt()
     global mySessions, user_dir
@@ -777,7 +753,7 @@ def unread():
     
 
 @app.route('/reply', methods = ['GET','POST'])
-@jwt_required
+@jwt_required()
 def reply():
     global user_dir, mySessions
     user = get_jwt()
