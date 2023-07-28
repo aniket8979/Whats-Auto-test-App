@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Welcome   </title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='/w_auto.css') }}">
+
+</head>
+<body>
+    <div>
+        <a href="/log_btn" type = button>Login</a>
+    </div>
+
+    <div>
+        <a href="/reg_btn" type = button>Register</a>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <img src="url_for('static',filename= '/Scriza_logo.jpeg')"  class = "logo" alt="">
+            <img src="/HTML/logo with name.jpg" alt="" class="logoname">
+            <h1>WhatsappAutomation</h1>
+        </div>
+        
+        <div class="section">
+            <embed type="text/html" src="/unread"  width="50%" height="500px">
+                
+            <embed type="text/html" src="/upload"  width="49%" height="500px">
+        </div>
+
+    </div>
+    <div class="footer">
+        <div class="footer1">
+            <a href="/logout">Logout</a>
+            
+        </div>
+        <div class="footer2">
+            <a href="/new">New user</a>
+            
+        </div>
+    </div>
+
+</body>
+</html>

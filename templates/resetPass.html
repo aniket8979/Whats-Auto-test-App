@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <form action="/resetpass" name="resetdone" method="post">
+        <h1>Set New Password</h1>
+        <label for="pass1">Enter New Password</label>
+        <input type="text" name="pass1" id="pass1">
+        <label for="pass2">Re-Enter Password</label>
+        <input type="text" name="pass2", id="pass2">
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        document.forms['restdone'].addEventListener('submit', function (event) {
+            // Do something with the form's data here
+            this.style['display'] = 'none';
+            event.preventDefault();/*w  w w.  j av  a2s.c  o  m*/
+        });
+      </script>
+    {{resp}}
+    <a href="/">Go back to login Page</a>
+</body>
+</html>

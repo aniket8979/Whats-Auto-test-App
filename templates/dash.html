@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+</head>
+<body>
+
+
+    <h1>Demo Dash Page</h1>
+    <form action="/access" method="post">
+        {% for x in accounts %}
+        <div>
+            <br>
+            <p>Account : {{x.phone}} ||  Status : {{x.status}} </p>
+            <button type="submit" name="access" value={{x.phone}}>Open : {{x.phone}} </button>
+            <button type="submit" name="access" value=close{{x.phone}}>Close</button>
+            <button type="submit" name="access" value=reset{{x.phone}}>Reset</button>
+            <br>
+        </div>
+        {% endfor %}
+    </form>
+    <br>
+    <a href="/dash">Refresh</a>
+    <br>
+    <br>
+    <a href="/adduser">Add User</a>
+    <br>
+    <br>
+    <a href="/logout">Logout</a>
+    <br>
+    <p>Showcasing Features of our app</p>
+    <br>
+    <br>
+    <a href="/resetall">Reset All</a>
+
+
+    
+
+</body>
+</html>

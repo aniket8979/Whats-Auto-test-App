@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body> 
+    <div class="main-div">
+        <a href="refresh">Refresh</a>
+        <br>
+        <br>
+        <a href="/dashboard">dashboard</a>
+
+        <form action="/access" method="get">
+            {% for x in accounts %}
+            <div>
+                <br>
+                <p>Account : {{x.phone}} ||  Status : {{x.status}} </p>
+                <input type="text" name="userid" value={{x.userid}} hidden>
+                <button type="submit" name="access" value={{x.phone}}>Open : {{x.phone}} </button>
+                <button type="submit" name="access" value="close">Close</button>
+                <button type="submit" name="access" value=reset{{x.phone}}>Reset</button>
+                <br>
+            </div>
+            {% endfor %}
+        </form>
+        <br>
+        {{response}}
+        <br>
+        <a href="/adduser/{{x.userid}}">Add User</a>
+        
+    </div>
+   
+</body>
+</html>

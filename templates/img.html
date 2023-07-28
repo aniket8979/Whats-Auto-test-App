@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='/w_auto.css') }}"> -->
+    <title>Upload</title>
+</head>
+<body>
+    
+    <div class="secondsection">
+        <h2>Send Images</h2>
+        <h3>Add Caption to Image</h3><br><br>
+        <div>
+            <form action="/imgsend" method="post" enctype="multipart/form-data" >
+                <label for="excel">Excel File</label>
+                <input type="file" name="myfile" class="button" id="excel">
+
+                <br>
+                <br>
+                <label for="wimage">Image File</label>
+                <input type="file" name="myimage" id="wimage">
+                <br>
+
+                <p>Write Caption for your image here:- </p>
+                <input class="inp_box" name="caption" id="textbox">
+                <br>
+                <br>
+
+                
+                <span class="button"><button type="submit">Submit</button></span>
+            
+            </form>
+
+            {{task}}
+        
+        </div>
+        <br>
+        <br>
+    
+    </div>
+
+    
+</body>
+</html>

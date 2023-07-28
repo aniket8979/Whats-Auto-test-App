@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='/w_auto.css') }}"> -->
+    <title>Upload</title>
+</head>
+<body>
+    
+    <div class="secondsection">
+        <h2>Text Users</h2>
+        <h3>Text New Users</h3><br><br>
+        <div>
+            <form action="/upload" method="post" enctype="multipart/form-data" >
+                <input type="file" name="myfile" class="button" id="">
+                <br><br>
+                <p>Write your mesaage here:- </p>
+                <input class="inp_box" name="message" id="textbox">
+                <br>
+                <br>
+
+                
+                <span class="button"><button type="submit">Submit</button></span>
+            
+            </form>
+
+            {{task}}
+        
+        </div>
+        <br>
+        <br>
+    
+    </div>
+
+    
+</body>
+</html>

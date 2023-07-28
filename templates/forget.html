@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <form action="/forget" method="get">
+        <br>
+        <br>
+        <label for="mail">Enter Email: </label>
+        <input type="email" name="email" id="mail">
+        <br>
+        <button type="submit">Generate OTP</button>
+    </form>
+    <br>
+    <br>
+    {{resp}}
+    <br>
+    <br>
+    <form action="/verify" method="get">
+        <label for="otp">Enter OTP: </label>
+        <input type="number" name="otp" id="otp">
+        <input type="submit" value="Submit">
+    </form>
+    <br> 
+
+</body>
+</html>

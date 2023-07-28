@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qr code</title>
+</head>
+<body>
+    <br>
+    <img src={{qrdata.qrcode.qrCode}} alt="QRCode">
+    <br>
+    <br>
+    <form action="/getqr" method="get">
+        <button type="submit">Refresh QR</button>
+    </form>
+    <h2>Click Refresh button if QR fail to load</h2>
+    <h1>wait for 6-8 Seconds for QR to Load</h1>
+    {{wait}}
+    <br>
+    <h2>After Scanning and Logging in press "Go To Account" link to Use your account</h2>
+    <a href="/dash">Go to Account</a>
+       <!-- QR Code Values -->
+    <br>
+    <br>
+    {{qrdata.qrcode.urlCode}}
+</body>
+</html>
