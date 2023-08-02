@@ -178,8 +178,6 @@ def delete_file(filepath):
         print('file not deleted')
 
 
-
-
 @app.route('/getqr')
 @jwt_required()
 def myqr():
@@ -191,7 +189,7 @@ def myqr():
             mySessions[number].start()
             data = mySessions[number].getQrcode()
             if data is not None:
-                return render_template('qrcode.html', qrdata = data)
+                return jsonify({"qrdata":data})
             else:
                 a = {'Error':'Did not received Respose from whatsapp, Reset account and Scan Qr Again'}
                 return jsonify(a), 408
@@ -219,7 +217,7 @@ def add_account():
                 print('User Data Saved')
                 user_status(phone=phone, status='inactive')
                 a.close()
-            driver_thread = threading.Thread(target=driver_act())
+            driver_thread = threading.Thread(target=driver_act)
             driver_thread.start()
             print("Thread procceding to return response")
             user['number'] = phone
@@ -245,12 +243,13 @@ def activate_driver(username, user_session):
     return client
 
 
-@app.route('/access', methods = ['GET', 'POST'])
+@app.route('/access', methods = ['POST'])
 @jwt_required()
 def user_whats():
     global mySessions
     if request.method == 'POST':
         info = get_jwt()
+        token = info['token']
         button = str(request.values['access']).strip()
         print(button)
         if button[0:5] != 'close' and button[0:5] != 'reset':
@@ -261,10 +260,11 @@ def user_whats():
                 dr1 = threading.Thread(target=new_dr1)
                 dr1.start()
                 info['number'] = button
-                token = create_access_token(identity=info['sub'], additional_claims=info)
+                print( 'if access open number is printed or not',info['number'])
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 az = user_status(phone=str(ph_number), status='active')
                 status = render(userid=info['id'])
-                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
+                a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
                 return jsonify(a), 200
 
             elif button in mySessions and 'number' in info:
@@ -273,9 +273,20 @@ def user_whats():
                 dr2 = threading.Thread(target=new_dr2)
                 dr2.start()
                 aa = user_status(phone=button, status='active')
-                token = create_access_token(identity=info['sub'], additional_claims=info)
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
-                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
+                a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
+                return jsonify(a), 200
+            
+            elif button in mySessions and 'number' not in info:
+                def new_dr2():
+                    client = activate_driver(username=token, user_session=button)
+                dr2 = threading.Thread(target=new_dr2)
+                dr2.start()
+                aa = user_status(phone=button, status='active')
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
+                status = render(userid=info['id'])
+                a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
                 return jsonify(a), 200
                 
             elif button != info['number']:
@@ -296,8 +307,8 @@ def user_whats():
                 user_status(phone=ph_number, status='active')
                 info['number'] = ph_number
                 status = render(userid=info['id'])
-                token = create_access_token(identity=info['sub'], additional_claims=info)
-                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
+                a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
                 return jsonify(a), 200
             
 
@@ -313,22 +324,22 @@ def user_whats():
                     c_dr.start()
                     mySessions.pop(sess_ph, None)
                     user_status(phone= sess_ph, status= 'inactive')
-                    token = create_access_token(identity=info['sub'], additional_claims=info)
+                    update_token = create_access_token(identity=info['sub'], additional_claims=info)
                     status = render(userid=info['id'])
-                    a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
+                    a = {'Status':'Session Closed', 'Token': update_token, 'Accounts':status}
                     return jsonify(a), 200
                 except:
                     user_status(phone= sess_ph, status= 'inactive')
                     mySessions.pop(sess_ph, None)
-                    token = create_access_token(identity=info['sub'], additional_claims=info)
+                    update_token = create_access_token(identity=info['sub'], additional_claims=info)
                     status = render(userid=info['id'])
-                    a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
+                    a = {'Status':'Session Closed', 'Token': update_token, 'Accounts':status}
                     return jsonify(a), 200
             else:
                 user_status(phone= sess_ph, status= 'inactive')
-                token = create_access_token(identity=info['sub'], additional_claims=info)
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
-                a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
+                a = {'Status':'Session Closed', 'Token': update_token, 'Accounts':status}
                 return jsonify(a), 200
             
         elif button[0:5] =='reset':
@@ -549,17 +560,21 @@ def reset_Account():
 
 
 def user_status(phone, status):
-    u_status = tuple()
-    query = text(f"UPDATE user_session SET ac_status = '{status}' WHERE (phone = '{phone}');")
-    print(query)
-    with engine.connect() as conn:
-        conn.execute(query)
-        conn.commit()
-        n_query = text(f"SELECT * FROM user_session WHERE phone = '{str(phone)}';")
-        rt = conn.execute(n_query)
-        u_status = tuple(rt)
-        print('this shows active inactive status: ', u_status)
-        a = {'status': u_status[0][3]}
+    try:
+        u_status = tuple()
+        query = text(f"UPDATE user_session SET ac_status = '{status}' WHERE (phone = '{phone}');")
+        print(query)
+        with engine.connect() as conn:
+            conn.execute(query)
+            conn.commit()
+            n_query = text(f"SELECT * FROM user_session WHERE phone = '{str(phone)}';")
+            rt = conn.execute(n_query)
+            u_status = tuple(rt)
+            print('this shows active inactive status: ', u_status)
+            a = {'status': u_status[0][3]}
+            return a
+    except:
+        a = {'status': status}
         return a
 
 
@@ -567,6 +582,7 @@ def user_status(phone, status):
 @jwt_required()
 def send_msg():
     user = get_jwt()
+    print(user)
     if 'number' in user:
         global mySessions
         try:
@@ -734,6 +750,17 @@ def use_file():
     
 
 
+def clean_txt_file(file_path):
+    try:
+        with open(file_path, 'w') as file:
+            file.truncate(0)  # Truncate the file to 0 bytes, effectively clearing it.
+        print(f"File '{file_path}' has been cleared.")
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")   
+
+
 @app.route('/unread')
 @jwt_required()
 def unread():
@@ -742,7 +769,7 @@ def unread():
     if 'number' in user:
         path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
         numb = str(user['number'])
-        sender = []
+        sender = set()
         client = mySessions[numb].start()
         data = client.getAllUnreadMessages()
         for i in data:
@@ -750,15 +777,18 @@ def unread():
             recMsg = str(i['body'])
             if len(recFrom) <= 20:
                 if recMsg != None and recFrom[2:12] !=numb:
-                    sender.append(recFrom)
+                    rec_ff = recFrom[2:12]
+                    sender.add(rec_ff)
             else:
                 continue
+        clean_txt_file(file_path=path+'\\'+'incoming.txt')
         with open (path+'\\'+'incoming.txt', 'w') as file:
             for number in sender:  
                 file.write(str(number))
                 file.write('\n')
         chat = len(sender)
-        a = {'Status':chat+' new msgs', 'senders':sender}
+        rec_from = list(sender)
+        a = {'Status':str(chat)+' new msgs', 'senders':rec_from}
         return jsonify(a), 200
     
 
@@ -768,9 +798,9 @@ def reply():
     global user_dir, mySessions
     user = get_jwt()
     if 'number' in user:
+        senders = []
         try:
             path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
-            senders = []
             with open(path+'\\'+'incoming.txt', 'r') as file:
                 for line in file:
                     senders.append(str(line.strip()))
@@ -782,37 +812,38 @@ def reply():
         reply_fail = 0
         reply_done = 0
         numb = user['number']
+        client = mySessions[numb].start()            
         for number in senders:
-            number = str(number[3:13])
+            number = str(number)
             count = 0
-            client = mySessions[numb].start()            
-            
+            print(number)
             try:
                 client.sendText("+91"+number, text)
+                print('Replying to ', number)
                 reply_done = reply_done + 1
             except:
                 print('Unable to reply to this User')
                 reply_fail = reply_fail + 1
                 count = count+1
-                a = {
-                        'Status':{
-                            'Status':'Task Completed',
-                            'Successful':f"{reply_done}",
-                            'Failed':f"{reply_fail}"
-                            }
-                        }
-                    # return jsonify(a)
-                return jsonify(a), 200
-            else:
-                print('No New Chats available')
-                a = {
-                    'Status':{
-                        'Status':'Task Completed',
-                        'Successful':f"{reply_done}",
-                        'Failed':f"{reply_fail}"
-                    }
+        a = {
+            'Status':{
+                'Status':'Task Completed',
+                'Successful':f"{reply_done}",
+                'Failed':f"{reply_fail}"
                 }
-                return jsonify(a), 200
+            }
+                    # return jsonify(a)
+        return jsonify(a), 200
+    else:
+        print('No New Chats available')
+        a = {
+            'Status':{
+                'Status':'Task Completed',
+                'Successful':f"{reply_done}",
+                'Failed':f"{reply_fail}"
+                }
+                }
+        return jsonify(a), 200
                 # return jsonify(a)
             # return render_template('reply.html',  fail = reply_fail, done = reply_done)
 
