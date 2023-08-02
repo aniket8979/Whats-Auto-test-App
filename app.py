@@ -10,13 +10,14 @@ import uuid
 import random
 import smtplib
 from time import sleep
+import datetime
 from datetime import timedelta
 import pandas as pd
 from WPP_Whatsapp import Create
-from multiprocessing import Process
 import shutil
 import threading
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 # MY SQL DATABASE LIBRARY & models
@@ -25,14 +26,38 @@ from models import engine
 from sqlalchemy.sql import text
 
 
+#Scheduler to Autodelete Revoked Tokens from database
+def clear_db_token():
+    query = text(f"SELECT * FROM blocked_token WHERE exp_time < NOW() - INTERVAL 12 HOUR;")
+    with engine.connect() as conn:
+        check_record = conn.execute(query)
+        token_record = tuple(check_record.fetchall())
+        print(token_record)
+        for record in token_record:
+            token = record[1]
+            del_query = text(f"DELETE FROM users.blocked_token WHERE (token = '{token}');")
+            print(del_query)
+            conn.execute(del_query)
+            conn.commit()
+
+scheduler = BackgroundScheduler(daemon = True)
+scheduler.add_job(func=clear_db_token, trigger="interval", minutes = 60)
+scheduler.start()
+
+
+
+
+# Flask App Initiated
 app = Flask(__name__)
+
+
 
 
 # Setup the Flask-JWT-Extended extension
 app.config["JWT_SECRET_KEY"] = "nnnnnnnnSCRIZAnnnnnnnnnPVTnnnnnnnLTD"  # Change this!
-access_expires = timedelta(minutes=15)
-app.config['JWT_BLACKLIST_ENABLED'] = True
-app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access']
+access_expires = timedelta(hours=12)
+# app.config['JWT_BLACKLIST_ENABLED'] = True
+# app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = access_expires
 
 
@@ -40,15 +65,22 @@ jwt = JWTManager(app)
 
 
 mySessions = dict()
-blacklist = set()
 forgetPassDict = {}
 user_dir = ('D:\\Career\\Jobs\\Scriza Pvt. Ltd\\Internship\\Projects\\W_auto\\saved users')
+
+
+
 
 
 @jwt.token_in_blocklist_loader
 def check_token_revoked(jwt_header, jwt_payload):
     jti = jwt_payload['jti']
-    return jti in blacklist
+    query = text(f"SELECT * FROM blocked_token WHERE token = '{jti}';")
+    with engine.connect() as conn:
+        rt = conn.execute(query)
+        nrt = tuple(rt.fetchall())
+        if nrt:
+            return jsonify({'status':'Token is in blocklist'}), 401
 
 
 @jwt.invalid_token_loader
@@ -63,54 +95,54 @@ def my_expired_token_callback(jwt_header, jwt_payload):
 
 
 
+def block_token(token, datetime):
+    id = uuid.uuid1()
+    try:
+        query = text(f"INSERT INTO users.blocked_token (id, token, exp_time) VALUES ('{id}', '{token}', '{datetime}');")
+        print(query)
+        with engine.connect() as conn:
+            conn.execute(query)
+            conn.commit()
+    except:
+        print('Blocked Token already exist in Database')
+
+
 @app.route('/logout')
-@jwt_required
+@jwt_required()
 def logout():
-    jti = get_jwt()['jti']
-    blacklist.add(jti)
-    return jsonify({"msg": "Successfully logged out"}), 200
-
-
-
-
-# @app.route('/logout')
-# @jwt_required()
-# def logout():
-#     global mySessions
-#     user = get_jwt()
-#     jti = user['jti']
-#     if 'number' in user:
-#         phone = str(user['number'])
-#         if phone in mySessions and 'number' in user:
-#             try:
-#                 def logout_dri():
-#                     client = mySessions[phone].start()
-#                     client.close()
-#                 log_dr = threading.Thread(target=logout_dri)
-#                 log_dr.start()
-#                 mySessions.pop(phone, None)
-                
-#                 jwt_redis_blocklist.set(jti, '', ex=access_expires)
-#                 a = {'Status':'Logged out', 'Token':'Token revoked'}
-#                 return jsonify(a), 200
-                
-#             except:
-#                 mySessions.pop(phone, None)
-#                 jti = user['jti']
-#                 jwt_redis_blocklist.set(jti, '', ex=access_expires)
-#                 a = {'Status':'Logged out', 'Token':'Token revoked'}
-#                 return jsonify(a), 200
-#                 # return redirect(url_for('index'))
-#         else:
-#             mySessions.pop(phone, None)
-#             jwt_redis_blocklist.set(jti, '', ex=access_expires)
-#             a = {'Status':'Logged out', 'Token':'Token revoked'}
-#             return jsonify(a), 200
-#             # return redirect(url_for('index'))
-#     else:
-#         jwt_redis_blocklist.set(jti, '', ex=access_expires)
-#         a = {'Status':'Logged out', 'Token':'Token revoked'}
-#         return jsonify(a), 200
+    global mySessions
+    user = get_jwt()
+    jti = user['jti']
+    time = datetime.datetime.now()
+    if 'number' in user:
+        phone = str(user['number'])
+        if phone in mySessions and 'number' in user:
+            try:
+                def logout_dri():
+                    client = mySessions[phone].start()
+                    client.close()
+                log_dr = threading.Thread(target=logout_dri)
+                log_dr.start()
+                mySessions.pop(phone, None)
+                block_token(token=jti, datetime=time)
+                a = {'Status':'Logged out', 'Token':'Token revoked'}
+                return jsonify(a), 200
+            except:
+                mySessions.pop(phone, None)
+                block_token(token=jti, datetime=time)
+                a = {'Status':'Logged out', 'Token':'Token revoked'}
+                return jsonify(a), 200
+                # return redirect(url_for('index'))
+        else:
+            mySessions.pop(phone, None)
+            block_token(token=jti, datetime=time)
+            a = {'Status':'Logged out', 'Token':'Token revoked'}
+            return jsonify(a), 200
+            # return redirect(url_for('index'))
+    else:
+        block_token(token=jti, datetime=time)
+        a = {'Status':'Logged out', 'Token':'Token revoked'}
+        return jsonify(a), 200
     
 
 
@@ -196,7 +228,6 @@ def myqr():
         except:
             a = {'Error':'Did not received Respose from whatsapp, Reset account and Scan Qr Again'}
             return jsonify(a), 408
-
 
 
 
@@ -547,7 +578,7 @@ def reset_Account():
                 conn.commit()
                 print('comitted')
                 jti = get_jwt()['jti']
-                blacklist.add(jti)
+                
                 a = {'Status':'Password Changed Successfully', 'Token':'Token Revoked, Please Log in Again'}                    
                 return jsonify(a), 200
         else:
@@ -833,19 +864,18 @@ def reply():
                 }
             }
                     # return jsonify(a)
+        clean_txt_file()
         return jsonify(a), 200
     else:
-        print('No New Chats available')
-        a = {
-            'Status':{
-                'Status':'Task Completed',
-                'Successful':f"{reply_done}",
-                'Failed':f"{reply_fail}"
-                }
-                }
+        a = {'status':'Session not Started yet'}
         return jsonify(a), 200
                 # return jsonify(a)
             # return render_template('reply.html',  fail = reply_fail, done = reply_done)
+
+
+
+
+
 
 
 if __name__ == '__main__':
