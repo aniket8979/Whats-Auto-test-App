@@ -17,7 +17,7 @@ from multiprocessing import Process
 import shutil
 import threading
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
-import redis
+
 
 # MY SQL DATABASE LIBRARY & models
 from tables import user_new, save_user_session
@@ -25,83 +25,92 @@ from models import engine
 from sqlalchemy.sql import text
 
 
-
 app = Flask(__name__)
 
-access_expires = timedelta(minutes=5)
 
 # Setup the Flask-JWT-Extended extension
 app.config["JWT_SECRET_KEY"] = "nnnnnnnnSCRIZAnnnnnnnnnPVTnnnnnnnLTD"  # Change this!
+access_expires = timedelta(minutes=15)
+app.config['JWT_BLACKLIST_ENABLED'] = True
+app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = access_expires
+
 
 jwt = JWTManager(app)
 
-jwt_redis_blocklist = redis.StrictRedis(
-    host='localhost', decode_responses=True
-)
-
-@jwt.token_in_blocklist_loader
-def check_token_revoked(jwt_header, jwt_paylod:dict):
-    jti = jwt_paylod['jti']
-    token_in_redis = jwt_redis_blocklist.get(jti)
-    return token_in_redis is not None
-
 
 mySessions = dict()
+blacklist = set()
 forgetPassDict = {}
-
 user_dir = ('D:\\Career\\Jobs\\Scriza Pvt. Ltd\\Internship\\Projects\\W_auto\\saved users')
+
+
+@jwt.token_in_blocklist_loader
+def check_token_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload['jti']
+    return jti in blacklist
 
 
 @jwt.invalid_token_loader
 def invalid_token_response(callback):
-    return jsonify(error='get lost you idiot'), 401
+    return jsonify({'Status':'Invalid Token'}), 401
 
 
 @jwt.expired_token_loader
-def my_expired_token_callback(callback):
-    return jsonify(error='what a wonderful idiot you are'), 401
+def my_expired_token_callback(jwt_header, jwt_payload):
+    return jsonify({'Status':'Token Expired','Response':'Please login again'}), 401
+
 
 
 
 @app.route('/logout')
-@jwt_required()
+@jwt_required
 def logout():
-    global mySessions
-    user = get_jwt()
-    jti = user['jti']
-    if 'number' in user:
-        phone = str(user['number'])
-        if phone in mySessions and 'number' in user:
-            try:
-                def logout_dri():
-                    client = mySessions[phone].start()
-                    client.close()
-                log_dr = threading.Thread(target=logout_dri)
-                log_dr.start()
-                mySessions.pop(phone, None)
+    jti = get_jwt()['jti']
+    blacklist.add(jti)
+    return jsonify({"msg": "Successfully logged out"}), 200
+
+
+
+
+# @app.route('/logout')
+# @jwt_required()
+# def logout():
+#     global mySessions
+#     user = get_jwt()
+#     jti = user['jti']
+#     if 'number' in user:
+#         phone = str(user['number'])
+#         if phone in mySessions and 'number' in user:
+#             try:
+#                 def logout_dri():
+#                     client = mySessions[phone].start()
+#                     client.close()
+#                 log_dr = threading.Thread(target=logout_dri)
+#                 log_dr.start()
+#                 mySessions.pop(phone, None)
                 
-                jwt_redis_blocklist.set(jti, '', ex=access_expires)
-                a = {'Status':'Logged out', 'Token':'Token revoked'}
-                return jsonify(a), 200
+#                 jwt_redis_blocklist.set(jti, '', ex=access_expires)
+#                 a = {'Status':'Logged out', 'Token':'Token revoked'}
+#                 return jsonify(a), 200
                 
-            except:
-                mySessions.pop(phone, None)
-                jti = user['jti']
-                jwt_redis_blocklist.set(jti, '', ex=access_expires)
-                a = {'Status':'Logged out', 'Token':'Token revoked'}
-                return jsonify(a), 200
-                # return redirect(url_for('index'))
-        else:
-            mySessions.pop(phone, None)
-            jwt_redis_blocklist.set(jti, '', ex=access_expires)
-            a = {'Status':'Logged out', 'Token':'Token revoked'}
-            return jsonify(a), 200
-            # return redirect(url_for('index'))
-    else:
-        jwt_redis_blocklist.set(jti, '', ex=access_expires)
-        a = {'Status':'Logged out', 'Token':'Token revoked'}
-        return jsonify(a), 200
+#             except:
+#                 mySessions.pop(phone, None)
+#                 jti = user['jti']
+#                 jwt_redis_blocklist.set(jti, '', ex=access_expires)
+#                 a = {'Status':'Logged out', 'Token':'Token revoked'}
+#                 return jsonify(a), 200
+#                 # return redirect(url_for('index'))
+#         else:
+#             mySessions.pop(phone, None)
+#             jwt_redis_blocklist.set(jti, '', ex=access_expires)
+#             a = {'Status':'Logged out', 'Token':'Token revoked'}
+#             return jsonify(a), 200
+#             # return redirect(url_for('index'))
+#     else:
+#         jwt_redis_blocklist.set(jti, '', ex=access_expires)
+#         a = {'Status':'Logged out', 'Token':'Token revoked'}
+#         return jsonify(a), 200
     
 
 
@@ -116,13 +125,13 @@ def resetall():
         shutil.rmtree(users, ignore_errors=True)
         print(f"Folder '{users}' deleted successfully.")
         token = create_access_token(identity=user['sub'], additional_claims=user)
-        a = {'Status':'All User Sessions Deleted', 'token':token}
+        a = {'Status':'All User Sessions Deleted', 'Token':token}
         return jsonify(a), 200
             # return redirect(url_for('dash'))
     except Exception as e:
         print(f"Error: {e}")
         token = create_access_token(identity=user['sub'], additional_claims=user)
-        a = {'Status':'Some Error Occured', 'token':token}
+        a = {'Status':'Some Error Occured', 'Token':token}
         return jsonify(a), 418
 
 
@@ -205,15 +214,18 @@ def add_account():
         try:
             save_user_session(sid=0, phone= phone, user_id= user['id'], status= 'inactive')
             def driver_act():
+                print("thread add accunt started")
                 a = activate_driver(username= user['token'], user_session=phone)
                 print('User Data Saved')
                 user_status(phone=phone, status='inactive')
                 a.close()
-            driver_thread = threading.Thread(target= driver_act())
+            driver_thread = threading.Thread(target=driver_act())
             driver_thread.start()
+            print("Thread procceding to return response")
             user['number'] = phone
             token = create_access_token(identity=user['sub'], additional_claims= user)
             a = {'Status':'Connecting with server', 'Response':'Fetch QR after few Seconds', 'token':token}
+            # return 'jai shree ram'
             return jsonify(a), 200
         except:
                 a = {"Request timeout": "Reset Account and Rescan QR Code"}
@@ -252,7 +264,7 @@ def user_whats():
                 token = create_access_token(identity=info['sub'], additional_claims=info)
                 az = user_status(phone=str(ph_number), status='active')
                 status = render(userid=info['id'])
-                a = {'Status':'Session Started', 'token':token, 'Account':status}
+                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
                 return jsonify(a), 200
 
             elif button in mySessions and 'number' in info:
@@ -263,7 +275,7 @@ def user_whats():
                 aa = user_status(phone=button, status='active')
                 token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
-                a = {'Status':'Session Started', 'token':token, 'Account':status}
+                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
                 return jsonify(a), 200
                 
             elif button != info['number']:
@@ -285,7 +297,7 @@ def user_whats():
                 info['number'] = ph_number
                 status = render(userid=info['id'])
                 token = create_access_token(identity=info['sub'], additional_claims=info)
-                a = {'Status':'Session Started', 'token':token, 'Account':status}
+                a = {'Status':'Session Started', 'Token':token, 'Accounts':status}
                 return jsonify(a), 200
             
 
@@ -303,20 +315,20 @@ def user_whats():
                     user_status(phone= sess_ph, status= 'inactive')
                     token = create_access_token(identity=info['sub'], additional_claims=info)
                     status = render(userid=info['id'])
-                    a = {'Status':'Session Closed', 'token': token, 'Accounts':status}
+                    a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
                     return jsonify(a), 200
                 except:
                     user_status(phone= sess_ph, status= 'inactive')
                     mySessions.pop(sess_ph, None)
                     token = create_access_token(identity=info['sub'], additional_claims=info)
                     status = render(userid=info['id'])
-                    a = {'Status':'Session Closed', 'token': token, 'Accounts':status}
+                    a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
                     return jsonify(a), 200
             else:
                 user_status(phone= sess_ph, status= 'inactive')
                 token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
-                a = {'Status':'Session Closed', 'token': token, 'Accounts':status}
+                a = {'Status':'Session Closed', 'Token': token, 'Accounts':status}
                 return jsonify(a), 200
             
         elif button[0:5] =='reset':
@@ -333,14 +345,14 @@ def user_whats():
                         del_db_data(phone=button[5:15])
                         token = create_access_token(identity=info['sub'], additional_claims=info)
                         status = render(userid=info['id'])
-                        a = {'Status':'Session Deleted', 'token': token, 'Accounts':status}
+                        a = {'Status':'Session Deleted', 'Token': token, 'Accounts':status}
                         return jsonify(a), 200
                     else:
                         delete_account(userid= info['token'], phone=sess_reset)
                         del_db_data(phone=sess_reset)
                         token = create_access_token(identity=info['sub'], additional_claims=info)
                         status = render(userid=info['id'])
-                        a = {'Status':'Session Deleted', 'token': token, 'Accounts':status}
+                        a = {'Status':'Session Deleted', 'Token': token, 'Accounts':status}
                         return jsonify(a), 200
 
             except:
@@ -349,7 +361,7 @@ def user_whats():
                     del_db_data(phone=sess_reset)
                     token = create_access_token(identity=info['sub'], additional_claims=info)
                     status = render(userid=info['id'])
-                    a = {'Status':'Session Deleted', 'token': token, 'Accounts':status}
+                    a = {'Status':'Session Deleted', 'Token': token, 'Accounts':status}
                     return jsonify(a), 200
                    
     else:
@@ -418,25 +430,23 @@ def User_login():
             print('IF this is empty',us_log)
             if us_log:
                 if check_password_hash(pwhash=us_log[0][2], password=password):
-                    dash = render(userid= us_log[0][0])
+                    status = render(userid= us_log[0][0])
                     # Session dict will store -> userid, token, 
                     token_Data = { 'id':str(us_log[0][0]), 'token':str(us_log[0][3])} 
                     print(token_Data)
                     token = create_access_token(identity=us_log[0][0], additional_claims=token_Data)
-                    a = {'Login':'Successful', 'Token':token, 'dash':dash}
+                    a = {'Login':'Successful', 'Token':token, 'Accounts':status}
                     return jsonify(a), 200
-                    # return render_template('Dash.html', name = a, accounts = dash, id = us_log[0][0]) #response, name= a)
                 else:
-                    a = {'login': 'Failed', 'reason':'Incorrect Password'}
+                    a = {'Login': 'Failed', 'reason':'Incorrect Password'}
                     return jsonify(a), 403
 
-                    # return render_template('login.html', name = a)
             else:
                 f = 'Failed'
                 r ='Incorrect EmailID'
-                a = {'login': f, 'reason':r}
+                a = {'Login': f, 'reason':r}
                 return jsonify(a), 401
-                # return render_template('login.html', name = a)   
+ 
     else:
         a = {'err':'Incorrect request method'}
         return jsonify(a) ,405
@@ -485,7 +495,7 @@ def account_exist():
 
 
 @app.route('/verify', methods = ['GET', 'POST'])
-@jwt_required
+@jwt_required()
 def forget_pass():
     global forgetPassDict
     user = get_jwt()
@@ -526,7 +536,7 @@ def reset_Account():
                 conn.commit()
                 print('comitted')
                 jti = get_jwt()['jti']
-                jwt_redis_blocklist.set(jti, '', ex=access_expires)
+                blacklist.add(jti)
                 a = {'Status':'Password Changed Successfully', 'Token':'Token Revoked, Please Log in Again'}                    
                 return jsonify(a), 200
         else:
