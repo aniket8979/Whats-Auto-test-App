@@ -28,17 +28,20 @@ from sqlalchemy.sql import text
 
 #Scheduler to Autodelete Revoked Tokens from database
 def clear_db_token():
-    query = text(f"SELECT * FROM blocked_token WHERE exp_time < NOW() - INTERVAL 12 HOUR;")
-    with engine.connect() as conn:
-        check_record = conn.execute(query)
-        token_record = tuple(check_record.fetchall())
-        print(token_record)
-        for record in token_record:
-            token = record[1]
-            del_query = text(f"DELETE FROM users.blocked_token WHERE (token = '{token}');")
-            print(del_query)
-            conn.execute(del_query)
-            conn.commit()
+    try:
+        query = text(f"SELECT * FROM blocked_token WHERE exp_time < NOW() - INTERVAL 12 HOUR;")
+        with engine.connect() as conn:
+            check_record = conn.execute(query)
+            token_record = tuple(check_record.fetchall())
+            print(token_record)
+            for record in token_record:
+                token = record[1]
+                del_query = text(f"DELETE FROM users.blocked_token WHERE (token = '{token}');")
+                print(del_query)
+                conn.execute(del_query)
+                conn.commit()
+    except:
+        print('Database clean nothing to commit')
 
 scheduler = BackgroundScheduler(daemon = True)
 scheduler.add_job(func=clear_db_token, trigger="interval", minutes = 60)
@@ -94,10 +97,10 @@ def my_expired_token_callback(jwt_header, jwt_payload):
 
 
 def block_token(token):
-    id = uuid.uuid1()
+    token_id = uuid.uuid1()
     now_time = datetime.datetime.now()
     try:
-        query = text(f"INSERT INTO users.blocked_token (id, token, exp_time) VALUES ('{id}', '{token}', '{now_time}');")
+        query = text(f"INSERT INTO users.blocked_token (id, token, exp_time) VALUES ('{token_id}', '{token}', '{now_time}');")
         print(query)
         with engine.connect() as conn:
             conn.execute(query)
@@ -154,14 +157,12 @@ def resetall():
     try:
         shutil.rmtree(users, ignore_errors=True)
         print(f"Folder '{users}' deleted successfully.")
-        token = create_access_token(identity=user['sub'], additional_claims=user)
-        a = {'Status':'All User Sessions Deleted', 'Token':token}
+        a = {'Status':'All User Sessions Deleted'}
         return jsonify(a), 200
             # return redirect(url_for('dash'))
     except Exception as e:
         print(f"Error: {e}")
-        token = create_access_token(identity=user['sub'], additional_claims=user)
-        a = {'Status':'Some Error Occured', 'Token':token}
+        a = {'Status':'Some Error Occured'}
         return jsonify(a), 418
 
 
@@ -219,7 +220,6 @@ def myqr():
             mySessions[number].start()
             data = mySessions[number].getQrcode()
             if data is not None:
-                block_token(token=user['jti'])
                 return jsonify({"qrdata":data})
             else:
                 a = {'Error':'Did not received Respose from whatsapp, Reset account and Scan Qr Again'}
@@ -303,6 +303,7 @@ def user_whats():
                 dr2 = threading.Thread(target=new_dr2)
                 dr2.start()
                 aa = user_status(phone=button, status='active')
+                info['number'] = button
                 update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
                 a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
@@ -314,6 +315,7 @@ def user_whats():
                 dr2 = threading.Thread(target=new_dr2)
                 dr2.start()
                 aa = user_status(phone=button, status='active')
+                info['number'] = button
                 update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 status = render(userid=info['id'])
                 a = {'Status':'Session Started', 'Token':update_token, 'Accounts':status}
@@ -322,7 +324,6 @@ def user_whats():
             elif button != info['number']:
                 a = {'Error': 'Please close session :'+info['number']}
                 return jsonify(a), 403
-                
                 
             else:
                 old_sess = info['number']
@@ -352,23 +353,25 @@ def user_whats():
                     c_dr = threading.Thread(target=cl_dr2)
                     c_dr.start()
                     mySessions.pop(sess_ph, None)
+                    info.pop('number', None)
                     user_status(phone= sess_ph, status= 'inactive')
                     status = render(userid=info['id'])
-                    block_token(token=info['jti'])
-                    a = {'Status':'Session Closed', 'Accounts':status}
+
                     return jsonify(a), 200
                 except:
                     user_status(phone= sess_ph, status= 'inactive')
                     mySessions.pop(sess_ph, None)
+                    info.pop('number', None)
                     status = render(userid=info['id'])
-                    block_token(token=info['jti'])
-                    a = {'Status':'Session Closed', 'Accounts':status}
+                    update_token = create_access_token(identity=info['sub'], additional_claims=info)
+                    a = {'Status':'Session Closed', 'Accounts':status, 'Token':update_token}
                     return jsonify(a), 200
             else:
                 user_status(phone= sess_ph, status= 'inactive')             
+                info.pop('number', None)
                 status = render(userid=info['id'])
-                block_token(token=info['jti'])
-                a = {'Status':'Session Closed', 'Accounts':status}
+                update_token = create_access_token(identity=info['sub'], additional_claims=info)
+                a = {'Status':'Session Closed', 'Accounts':status, 'Token':update_token}
                 return jsonify(a), 200
             
         elif button[0:5] =='reset':
@@ -601,26 +604,29 @@ def user_status(phone, status):
 def send_msg():
     user = get_jwt()
     print(user)
+    global mySessions
     if 'number' in user:
-        global mySessions
-        try:
-            number = user['number']
-            client = mySessions[number].start()
-            phone =  str(request.json.get("phone")).strip()
-            phone_len = len(phone)
-            phone = phone[phone_len - 10:]
-            text = str(request.json.get("text"))
+        number = user['number']
+        if number in mySessions:
+            try:
+                client = mySessions[number].start()
+                phone =  str(request.json.get("phone")).strip()
+                phone_len = len(phone)
+                phone = phone[phone_len - 10:]
+                text = str(request.json.get("text"))
 
-            client.sendText("+91"+phone, text)
-            a = {'Status':'Message sent Successfully'}
-            return jsonify(a), 200
-        except:
-            a = {'Status': 'Message not sent'}
-            a = {'Status':'Message not Sent'}
-            return jsonify(a), 200
+                client.sendText("+91"+phone, text)
+                a = {'Status':'Message sent Successfully'}
+                return jsonify(a), 200
+            except:
+                a = {'Status':'Message not Sent'}
+                return jsonify(a), 200
+        else:
+            a = {'Status':'User Session Inactive'}
+            return jsonify(a), 403
     else:
-        a = {'Status':'User Session Inactive'}
-        return jsonify(a), 200
+        a = {'Status':'Session Token Invalid'}
+        return jsonify(a), 401
     
 
 
@@ -628,10 +634,10 @@ def send_msg():
 @jwt_required()
 def send_image():
     user = get_jwt()
-    if 'number' in user:
-        global mySessions, user_dir
+    numb = str(user['number'])
+    global mySessions, user_dir
+    if 'number' in user and numb in mySessions:
         user_token_id = user['token']
-        numb = str(user['number'])
         my_dir = (user_dir+'\\'+ user_token_id +'\\'+str(numb))
         try:
             if request.method == 'POST':
@@ -685,6 +691,10 @@ def send_image():
         except:
             a = {'Status':'some error occoured, Please restart session'}
             return jsonify(a), 404
+    else:
+        a = {'Status':'User Session Inactive'}
+        return jsonify(a), 403
+
     
 
 
@@ -694,11 +704,11 @@ def send_image():
 @jwt_required()
 def use_file():
     user = get_jwt()
-    if 'number' in user:
+    numb = str(user['number'])
+    global user_dir, mySessions
+    if 'number' in user and numb in mySessions:
         user_token = user['token']
-        numb = str(user['number'])
 
-        global user_dir, mySessions
         my_dir = (user_dir+'\\'+user_token+'\\'+ numb)
         try:
             if request.method == 'POST':
@@ -760,7 +770,7 @@ def use_file():
             a = {'Status':'some error occoured, Please restart session !!'}
             return jsonify(a), 404
     else:
-        a = {'Status':'User Session not Started'}
+        a = {'Status':'User Session Inactive'}
         return jsonify(a), 404
     
 
@@ -781,9 +791,9 @@ def clean_txt_file(file_path):
 def unread():
     user = get_jwt()
     global mySessions, user_dir
-    if 'number' in user:
+    numb = str(user['number'])
+    if 'number' in user and numb in mySessions:
         path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
-        numb = str(user['number'])
         sender = set()
         client = mySessions[numb].start()
         data = client.getAllUnreadMessages()
@@ -805,6 +815,10 @@ def unread():
         rec_from = list(sender)
         a = {'Status':str(chat)+' new msgs', 'senders':rec_from}
         return jsonify(a), 200
+    else:
+        a = {'Status':'User Session Inactive'}
+        return jsonify(a), 403
+
     
 
 @app.route('/reply', methods = ['GET','POST'])
@@ -812,7 +826,8 @@ def unread():
 def reply():
     global user_dir, mySessions
     user = get_jwt()
-    if 'number' in user:
+    numb = user['number']
+    if 'number' in user and numb in mySessions:
         senders = []
         try:
             path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
@@ -821,12 +836,10 @@ def reply():
                     senders.append(str(line.strip()))
         except:
             return jsonify({'Status':'Some Error Occured'}), 404
-            
 
         text = str(request.values['reply_msg'])
         reply_fail = 0
         reply_done = 0
-        numb = user['number']
         client = mySessions[numb].start()            
         for number in senders:
             number = str(number)
@@ -851,8 +864,8 @@ def reply():
         clean_txt_file()
         return jsonify(a), 200
     else:
-        a = {'status':'Session not Started yet'}
-        return jsonify(a), 200
+        a = {'status':'User Session Inactive'}
+        return jsonify(a), 403
 
 
 
