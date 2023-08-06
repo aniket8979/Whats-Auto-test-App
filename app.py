@@ -634,65 +634,65 @@ def send_msg():
 @jwt_required()
 def send_image():
     user = get_jwt()
-    numb = str(user['number'])
     global mySessions, user_dir
-    if 'number' in user and numb in mySessions:
-        user_token_id = user['token']
-        my_dir = (user_dir+'\\'+ user_token_id +'\\'+str(numb))
-        try:
-            if request.method == 'POST':
+    if 'number' in user:
+        numb = str(user['number'])
+        if numb in mySessions:
+            user_token_id = user['token']
+            my_dir = (user_dir+'\\'+ user_token_id +'\\'+str(numb))
+            try:
+                if request.method == 'POST':
 
-                file = request.files['myfile']
-                image = request.files['myimage']
-                textmsg = str(request.values['caption'])
+                    file = request.files['myfile']
+                    image = request.files['myimage']
+                    textmsg = str(request.values['caption'])
 
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(my_dir, filename))
-                print('File Uploaded Successfully')
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(my_dir, filename))
+                    print('File Uploaded Successfully')
 
-                imagename = secure_filename(image.filename)
-                image.save(os.path.join(my_dir, imagename))
-                print('Image Uploaded Successfully')
+                    imagename = secure_filename(image.filename)
+                    image.save(os.path.join(my_dir, imagename))
+                    print('Image Uploaded Successfully')
 
-                imagepath = (my_dir+'\\'+imagename)
-                file_path = (my_dir+'\\'+filename)
-                # Code to read excel files
-                data = pd.read_excel(file_path)
+                    imagepath = (my_dir+'\\'+imagename)
+                    file_path = (my_dir+'\\'+filename)
+                    # Code to read excel files
+                    data = pd.read_excel(file_path)
 
-                client = mySessions[numb].start()
+                    client = mySessions[numb].start()
 
-                count = 0
-                for column in data['Phone'].to_list():
-                    phone = str(data['Phone'][count])
-                    phone_len = len(phone)
-                    phone = phone[phone_len - 10:]
-                    try:
-                        contact = str(column)
-                        print('Sending image on : ',contact)
-                        reciever = ('+91'+phone)
-                        client.sendImage(to=reciever, filePath=imagepath, filename='scz', caption=textmsg, isViewOnce=None)  
-                        # client.sendImage(to=phone, filename= imagepath, caption=textmsg, isViewOnce=None)
-                        count = count +1
-                    except:
-                        print('This number does not exist', contact)
-                        count = count +1
+                    count = 0
+                    for column in data['Phone'].to_list():
+                        phone = str(data['Phone'][count])
+                        phone_len = len(phone)
+                        phone = phone[phone_len - 10:]
+                        try:
+                            contact = str(column)
+                            print('Sending image on : ',contact)
+                            reciever = ('+91'+phone)
+                            client.sendImage(to=reciever, filePath=imagepath, filename='scz', caption=textmsg, isViewOnce=None)  
+                            count = count +1
+                        except:
+                            print('This number does not exist', contact)
+                            count = count +1
+                    
+                    delete_file(filepath= file_path)
+                    delete_file(filepath=imagepath)
+                    a = {'Status':'Image sent Successfully'}
+                    return jsonify(a), 200
                 
-                delete_file(filepath= file_path)
-                delete_file(filepath=imagepath)
-                a = {'Status':'Image sent Successfully'}
-                return jsonify(a), 200
-            
-            else:
-                # delete_file(filepath=imagepath)
-                # delete_file(filepath= file_page)
-                a = {'Status': 'Incorrect request method'}
-                # return jsonify(a)
-                return jsonify(a), 405
-        except:
-            a = {'Status':'some error occoured, Please restart session'}
-            return jsonify(a), 404
+                else:
+                    a = {'Status': 'Incorrect request method'}
+                    return jsonify(a), 405
+            except:
+                a = {'Status':'some error occoured, Please restart session'}
+                return jsonify(a), 404
+        else:
+            a = {'Status':'User Session Inactive'}
+            return jsonify(a), 403
     else:
-        a = {'Status':'User Session Inactive'}
+        a = {'Status':'Session token Invalid'}
         return jsonify(a), 403
 
     
@@ -704,75 +704,81 @@ def send_image():
 @jwt_required()
 def use_file():
     user = get_jwt()
-    numb = str(user['number'])
     global user_dir, mySessions
-    if 'number' in user and numb in mySessions:
-        user_token = user['token']
+    if 'number' in user:
+        numb = str(user['number'])
+        if numb in mySessions:
 
-        my_dir = (user_dir+'\\'+user_token+'\\'+ numb)
-        try:
-            if request.method == 'POST':
-                file = request.files['myfile']
-                custom_message = str(request.values['message'])
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(my_dir, filename))
-                print('File Uploaded Successfully')
-                print('Running Automation Script')
+            user_token = user['token']
+            my_dir = (user_dir+'\\'+user_token+'\\'+ numb)
+            try:
+                if request.method == 'POST':
+                    file = request.files['myfile']
+                    custom_message = str(request.values['message'])
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(my_dir, filename))
+                    print('File Uploaded Successfully')
+                    print('Running Automation Script')
 
-                file_path = (my_dir+'\\'+filename)
-                # Code to read excel files
-                data = pd.read_excel(file_path)
+                    file_path = (my_dir+'\\'+filename)
+                    # Code to read excel files
+                    data = pd.read_excel(file_path)
 
-                client = mySessions[numb].start()
+                    client = mySessions[numb].start()
 
-                count = 0
-                for column in data['Phone'].to_list():
-                    phone = str(data['Phone'][count])
-                    phone_len = len(phone)
-                    phone = phone[phone_len - 10:]
-                    try:
-                        contact = str(column)
-                        print('Sending text on : ',contact)
+                    count = 0
+                    for column in data['Phone'].to_list():
+                        phone = str(data['Phone'][count])
+                        phone_len = len(phone)
+                        phone = phone[phone_len - 10:]
+                        try:
+                            contact = str(column)
+                            print('Sending text on : ',contact)
 
-                        text1 = str(data['Text1'][count])
-                        print(text1[0:5])
-                        # For Sending Custom Messsages
-                        if text1 !='nan':
-                            text2 = str(data['Text2'][count])
-                            client.sendText("+91"+phone, text1)
-                            #It Checks if there is another msg to be send or not
-                            if text2 == None or text2 == 'nan':
-                                print('do not have a second messsage')
-                            # the Code Continue Looping if it is empty
+                            text1 = str(data['Text1'][count])
+                            print(text1[0:5])
+                            # For Sending Custom Messsages
+                            if text1 !='nan':
+                                text2 = str(data['Text2'][count])
+                                client.sendText("+91"+phone, text1)
+                                #It Checks if there is another msg to be send or not
+                                if text2 == None or text2 == 'nan':
+                                    print('do not have a second messsage')
+                                # the Code Continue Looping if it is empty
+                                else:
+                                    client.sendText("+91"+phone, text2)
+                                count = count+1
+                                sleep(0.25)
+
                             else:
-                                client.sendText("+91"+phone, text2)
-                            count = count+1
-                            sleep(0.25)
-
-                        else:
-                            client.sendText("+91"+phone, custom_message)
-                            sleep(0.25)
-                            count = count+1
-                    except:
-                        # print('This number does not exist', contact)
-                        count = count +1
+                                client.sendText("+91"+phone, custom_message)
+                                sleep(0.25)
+                                count = count+1
+                        except:
+                            # print('This number does not exist', contact)
+                            count = count +1
+                    
+                    delete_file(filepath= file_path)
+                    a = {'Status': 'Msg sent to Contacts'}
+                    return jsonify(a), 200
                 
-                delete_file(filepath= file_path)
-                a = {'Status': 'Msg sent to Contacts'}
-                return jsonify(a), 200
-            
-            else:
-                # delete_file(filepath= file_path)
-                a = {'Status':'Incorrect Form method'}
-                return jsonify(a), 405
-            
-        except:
-            a = {'Status':'some error occoured, Please restart session !!'}
-            return jsonify(a), 404
+                else:
+                    # delete_file(filepath= file_path)
+                    a = {'Status':'Incorrect Form method'}
+                    return jsonify(a), 405
+                
+            except:
+                a = {'Status':'some error occoured, Please restart session !!'}
+                return jsonify(a), 404
+        else:
+            a = {'Status':'User Session Inactive'}
+            return jsonify(a), 403
     else:
-        a = {'Status':'User Session Inactive'}
-        return jsonify(a), 404
-    
+        a = {'Status':'Session Token Invalid'}
+        return jsonify(a), 403
+
+
+
 
 
 def clean_txt_file(file_path):
@@ -791,33 +797,38 @@ def clean_txt_file(file_path):
 def unread():
     user = get_jwt()
     global mySessions, user_dir
-    numb = str(user['number'])
-    if 'number' in user and numb in mySessions:
-        path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
-        sender = set()
-        client = mySessions[numb].start()
-        data = client.getAllUnreadMessages()
-        for i in data:
-            recFrom = str(i['from'])
-            recMsg = str(i['body'])
-            if len(recFrom) <= 20:
-                if recMsg != None and recFrom[2:12] !=numb:
-                    rec_ff = recFrom[2:12]
-                    sender.add(rec_ff)
-            else:
-                continue
-        clean_txt_file(file_path=path+'\\'+'incoming.txt')
-        with open (path+'\\'+'incoming.txt', 'w') as file:
-            for number in sender:  
-                file.write(str(number))
-                file.write('\n')
-        chat = len(sender)
-        rec_from = list(sender)
-        a = {'Status':str(chat)+' new msgs', 'senders':rec_from}
-        return jsonify(a), 200
+    if 'number' in user:
+        numb = str(user['number'])
+        if numb in mySessions:
+            path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
+            sender = set()
+            client = mySessions[numb].start()
+            data = client.getAllUnreadMessages()
+            for i in data:
+                recFrom = str(i['from'])
+                recMsg = str(i['body'])
+                if len(recFrom) <= 20:
+                    if recMsg != None and recFrom[2:12] !=numb:
+                        rec_ff = recFrom[2:12]
+                        sender.add(rec_ff)
+                else:
+                    continue
+            clean_txt_file(file_path=path+'\\'+'incoming.txt')
+            with open (path+'\\'+'incoming.txt', 'w') as file:
+                for number in sender:  
+                    file.write(str(number))
+                    file.write('\n')
+            chat = len(sender)
+            rec_from = list(sender)
+            a = {'Status':str(chat)+' new msgs', 'senders':rec_from}
+            return jsonify(a), 200
+        else:
+            a = {'Status':'User Session Inactive'}
+            return jsonify(a), 403
     else:
-        a = {'Status':'User Session Inactive'}
+        a = {'Status':'Session Token Invalid'}
         return jsonify(a), 403
+
 
     
 
@@ -826,46 +837,51 @@ def unread():
 def reply():
     global user_dir, mySessions
     user = get_jwt()
-    numb = user['number']
-    if 'number' in user and numb in mySessions:
-        senders = []
-        try:
-            path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
-            with open(path+'\\'+'incoming.txt', 'r') as file:
-                for line in file:
-                    senders.append(str(line.strip()))
-        except:
-            return jsonify({'Status':'Some Error Occured'}), 404
-
-        text = str(request.values['reply_msg'])
-        reply_fail = 0
-        reply_done = 0
-        client = mySessions[numb].start()            
-        for number in senders:
-            number = str(number)
-            count = 0
-            print(number)
+    if 'number' in user:
+        numb = user['number']
+        if numb in mySessions:
+            senders = []
             try:
-                client.sendText("+91"+number, text)
-                print('Replying to ', number)
-                reply_done = reply_done + 1
+                path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
+                with open(path+'\\'+'incoming.txt', 'r') as file:
+                    for line in file:
+                        senders.append(str(line.strip()))
             except:
-                print('Unable to reply to this User')
-                reply_fail = reply_fail + 1
-                count = count+1
-        a = {
-            'Status':{
-                'Status':'Task Completed',
-                'Successful':f"{reply_done}",
-                'Failed':f"{reply_fail}"
+                return jsonify({'Status':'Some Error Occured'}), 404
+
+            text = str(request.values['reply_msg'])
+            reply_fail = 0
+            reply_done = 0
+            client = mySessions[numb].start()            
+            for number in senders:
+                number = str(number)
+                count = 0
+                print(number)
+                try:
+                    client.sendText("+91"+number, text)
+                    print('Replying to ', number)
+                    reply_done = reply_done + 1
+                except:
+                    print('Unable to reply to this User')
+                    reply_fail = reply_fail + 1
+                    count = count+1
+            a = {
+                'Status':{
+                    'Status':'Task Completed',
+                    'Successful':f"{reply_done}",
+                    'Failed':f"{reply_fail}"
+                    }
                 }
-            }
-                    # return jsonify(a)
-        clean_txt_file()
-        return jsonify(a), 200
+                        # return jsonify(a)
+            clean_txt_file()
+            return jsonify(a), 200
+        else:
+            a = {'status':'User Session Inactive'}
+            return jsonify(a), 403
     else:
-        a = {'status':'User Session Inactive'}
+        a = {'Status':'Session Token Invalid'}
         return jsonify(a), 403
+
 
 
 
