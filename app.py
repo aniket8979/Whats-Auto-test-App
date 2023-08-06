@@ -168,7 +168,7 @@ def resetall():
 
 
 def create_profile(profile):
-    directory = (user_dir+'\\'+profile)
+    directory = (user_dir+'\\'+str(profile))
     try:
         # Create the directory
         os.mkdir(directory)
@@ -242,14 +242,11 @@ def add_account():
         try:
             save_user_session(sid=0, phone= phone, user_id= user['id'], status= 'inactive')
             def driver_act():
-                print("thread add accunt started")
                 a = activate_driver(username= user['token'], user_session=phone)
-                print('User Data Saved')
                 user_status(phone=phone, status='inactive')
                 a.close()
             driver_thread = threading.Thread(target=driver_act)
             driver_thread.start()
-            print("Thread procceding to return response")
             user['number'] = phone
             token = create_access_token(identity=user['sub'], additional_claims= user)
             a = {'Status':'Connecting with server', 'Response':'Fetch QR after few Seconds', 'token':token}
@@ -290,7 +287,6 @@ def user_whats():
                 dr1 = threading.Thread(target=new_dr1)
                 dr1.start()
                 info['number'] = button
-                print( 'if access open number is printed or not',info['number'])
                 update_token = create_access_token(identity=info['sub'], additional_claims=info)
                 az = user_status(phone=str(ph_number), status='active')
                 status = render(userid=info['id'])
@@ -397,7 +393,6 @@ def user_whats():
                         return jsonify(a), 200
 
             except:
-                    print("This Reset-session went into Except block", sess_reset)
                     delete_account(userid= info['token'], phone=sess_reset)
                     del_db_data(phone=sess_reset)
                     status = render(userid=info['id'])
@@ -414,16 +409,15 @@ def register():
     if request.method == 'POST':
         try:
             id = 0
-            username =  str(request.json.get("username").strip())
-            email = str(request.json.get('email').strip())
-            password = generate_password_hash(password= str(request.values['password']).strip())
+            username =  str(request.json.get("username", None).strip())
+            email = str(request.json.get('email', None).strip())
+            password = generate_password_hash(password= str(request.json.get('password', None)).strip())
             token = uuid.uuid1()
-            print(token)
-            print(f'{username} and {email} and {password} and {token}')
-            user_new(id=id, name=str(username), password=str(password), token=str(token), email=str(email))
-            an = 'Registration Successful'
+            a = user_new(id=id, name=str(username), password=str(password), token=str(token), email=str(email))
+            print('this isnt working')
             create_profile(profile=token)
-            a = {'Response': an}
+            print('yes this')
+            a = {'Response': 'Registration Successful'}
             return jsonify(a), 200
         except:
             a = {'Response': 'User Already Exist'}
@@ -434,7 +428,6 @@ def register():
 
 def render(userid):
     try:
-        print(userid)
         # Rendered Data will be in form Table -> (id, user_id, name, number, session_id, account_status
         joinList = []
         query = text(f"SELECT user_session.user_id, new_user.email, user_session.phone, user_session.s_id, user_session.ac_status FROM new_user RIGHT JOIN user_session ON new_user.id = user_session.user_id where new_user.id = '{str(userid)}';")
@@ -533,10 +526,11 @@ def account_exist():
 def forget_pass():
     global forgetPassDict
     user = get_jwt()
+    email = user['sub']
     sent_otp = forgetPassDict[email]
+    print(sent_otp)
     otp = str(request.values['otp']).strip()
     if sent_otp==otp:
-            email = str(user['email'])
             user['secure'] = '!@#$%'
             token = create_access_token(identity=user['sub'], additional_claims=user)
             a = {'Status': 'OTP Varified','Response':'resetpass request is Allowed', 'Token':token}
@@ -552,31 +546,34 @@ def forget_pass():
 @app.route('/resetaccount', methods = ['GET', 'POST'])
 @jwt_required()
 def reset_Account():
-    if request.method == 'POST':
-        pass_1 = str(request.values['pass1'])
-        pass_2 = str(request.values['pass2'])
-        pass1 = pass_1.strip()
-        pass2 = pass_2.strip()
-        user = get_jwt()
-        print('This is printed from reset_pass',user['sub'])
-        if pass1 == pass2 and user['secure'] == '!@#$%':
-            new_pass = str(generate_password_hash(password= pass2).strip())
-            query = text(f"update users.new_user set password = '{new_pass}' where email = '{str(user['sub'])}';")
-            print(query)
-            with engine.connect() as conn:
-                conn.execute(query)
-                print('the query is commting')
-                conn.commit()
-                print('comitted')
-                jti = get_jwt()['jti']
-                block_token(token=jti)
-                a = {'Status':'Password Changed Successfully', 'Token':'Token Revoked, Please Log in Again'}                    
-                return jsonify(a), 200
+    user = get_jwt()
+    email = user['sub']
+    if 'secure' in user:
+        if request.method == 'POST':
+            pass_1 = str(request.json.get('pass1'))
+            pass_2 = str(request.json.get('pass2'))
+            pass1 = pass_1.strip()
+            pass2 = pass_2.strip()
+            if pass1 == pass2 and user['secure'] == '!@#$%':
+                new_pass = str(generate_password_hash(password= pass2).strip())
+                query = text(f"update users.new_user set password = '{new_pass}' where email = '{str(email)}';")
+                with engine.connect() as conn:
+                    conn.execute(query)
+                    conn.commit()
+                    jti = get_jwt()['jti']
+                    block_token(token=jti)
+                    a = {'Status':'Password Changed Successfully', 'Token':'Token Revoked, Please Log in Again'}                    
+                    return jsonify(a), 200
+            else:
+                a = {'Response': 'Password did not matched'}
+                return jsonify(a), 403    
         else:
-            a = {'Response': 'Password did not matched'}
-            return jsonify(a), 403    
+            a = {'Response':'Incorret request method'}
+            return jsonify(a), 405
     else:
-        a = {'Response':'Incorret request method'}
+        a = {'Status':'Session Token Invalid'}
+        return jsonify(a), 401
+
         
 
 

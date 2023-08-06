@@ -13,7 +13,6 @@ def user_new(id, name, password,token, email):
         print((user))
         print(user.compile().params)
         result = conn.execute(user)
-        print('Last Inserted Key : ')
         conn.commit()
         return result.inserted_primary_key
     except Exception as e:
