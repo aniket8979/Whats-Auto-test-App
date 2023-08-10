@@ -840,6 +840,7 @@ def reply():
             senders = []
             try:
                 path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
+                path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
                 with open(path+'\\'+'incoming.txt', 'r') as file:
                     for line in file:
                         senders.append(str(line.strip()))
@@ -869,8 +870,7 @@ def reply():
                     'Failed':f"{reply_fail}"
                     }
                 }
-                        # return jsonify(a)
-            clean_txt_file()
+            clean_txt_file(file_path=str(path+'\\'+'incoming.txt'))
             return jsonify(a), 200
         else:
             a = {'status':'User Session Inactive'}
@@ -883,4 +883,4 @@ def reply():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True)
+    app.run(threaded=True)
