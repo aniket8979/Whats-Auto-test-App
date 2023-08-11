@@ -840,7 +840,6 @@ def reply():
             senders = []
             try:
                 path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
-                path = user_dir+'\\'+str(user['token'])+'\\'+str(user['number'])
                 with open(path+'\\'+'incoming.txt', 'r') as file:
                     for line in file:
                         senders.append(str(line.strip()))
